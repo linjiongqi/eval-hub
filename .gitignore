@@ -13,6 +13,12 @@ frontend/dist/
 # Claude Code
 .claude/
 
+# Not for public display
+backend/
+docs/
+doc/backend-tasks.md
+doc/functional-design*
+
 # Misc
 .DS_Store
 *.log
