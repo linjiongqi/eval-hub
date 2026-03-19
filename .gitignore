@@ -1,0 +1,18 @@
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/venv/
+backend/.env
+backend/media/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Claude Code
+.claude/
+
+# Misc
+.DS_Store
+*.log

@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>评测平台 — 功能设计文档</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: #FCFCFC;
+      color: #111827;
+      line-height: 1.7;
+    }
+
+    /* ── Layout ── */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 256px; height: 100vh;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid #F3F4F6;
+      padding: 32px 20px;
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #000;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-logo span {
+      width: 28px; height: 28px;
+      background: #000;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .nav-section {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9CA3AF;
+      margin: 20px 0 8px;
+    }
+
+    .nav-item {
+      display: block;
+      padding: 7px 12px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      color: #374151;
+      text-decoration: none;
+      transition: all 200ms;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover { background: #F3F4F6; color: #000; }
+    .nav-item.active { background: #000; color: #fff; }
+
+    .main {
+      margin-left: 256px;
+      padding: 48px 56px;
+      max-width: 1100px;
+    }
+
+    /* ── Header ── */
+    .page-header {
+      margin-bottom: 48px;
+    }
+
+    .page-header h1 {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #000;
+      margin-bottom: 10px;
+    }
+
+    .page-header .subtitle {
+      font-size: 15px;
+      color: #6B7280;
+      background: #F3F4F6;
+      border-left: 3px solid #6366F1;
+      padding: 10px 16px;
+      border-radius: 0 8px 8px 0;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 56px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #000;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #F3F4F6;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2 .section-num {
+      width: 28px; height: 28px;
+      background: #000;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 20px 0 10px;
+    }
+
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+      margin: 16px 0 8px;
+    }
+
+    p { font-size: 14px; color: #374151; margin-bottom: 12px; }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 20px -4px rgba(0,0,0,0.06);
+      margin-bottom: 16px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .concept-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 20px -4px rgba(0,0,0,0.06);
+      border-top: 3px solid;
+    }
+
+    .concept-card:nth-child(1) { border-color: #6366F1; }
+    .concept-card:nth-child(2) { border-color: #10B981; }
+    .concept-card:nth-child(3) { border-color: #FB923C; }
+    .concept-card:nth-child(4) { border-color: #3B82F6; }
+
+    .concept-card h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 8px;
+    }
+
+    .concept-card p { font-size: 13.5px; color: #6B7280; margin-bottom: 8px; }
+
+    .concept-card ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .concept-card ul li {
+      font-size: 13px;
+      color: #374151;
+      padding: 3px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .concept-card ul li::before {
+      content: '·';
+      position: absolute;
+      left: 4px;
+      color: #9CA3AF;
+    }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin-bottom: 20px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px -2px rgba(0,0,0,0.06);
+    }
+
+    th {
+      background: #F9FAFB;
+      padding: 11px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: #374151;
+      font-size: 12.5px;
+      border-bottom: 1px solid #F3F4F6;
+    }
+
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #F9FAFB;
+      color: #374151;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #FAFAFA; }
+
+    .check { color: #10B981; font-weight: 700; }
+    .cross { color: #D1D5DB; }
+
+    /* ── Preview links table ── */
+    .preview-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #6366F1;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 4px 10px;
+      background: #EEF2FF;
+      border-radius: 6px;
+      transition: all 200ms;
+    }
+
+    .preview-link:hover { background: #E0E7FF; }
+
+    /* ── Feature list ── */
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 16px;
+    }
+
+    .feature-list li {
+      font-size: 14px;
+      color: #374151;
+      padding: 6px 0 6px 20px;
+      position: relative;
+      border-bottom: 1px solid #F9FAFB;
+    }
+
+    .feature-list li:last-child { border-bottom: none; }
+
+    .feature-list li::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 14px;
+      width: 6px; height: 6px;
+      background: #6366F1;
+      border-radius: 50%;
+    }
+
+    .feature-list li strong { color: #000; }
+
+    /* ── Sub feature list ── */
+    .sub-list {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0 16px;
+    }
+
+    .sub-list li {
+      font-size: 13.5px;
+      color: #6B7280;
+      padding: 3px 0 3px 16px;
+      position: relative;
+    }
+
+    .sub-list li::before {
+      content: '–';
+      position: absolute;
+      left: 0;
+      color: #D1D5DB;
+    }
+
+    /* ── Code block ── */
+    pre {
+      background: #111827;
+      color: #E5E7EB;
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin: 16px 0;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .badge-indigo { background: #EEF2FF; color: #4F46E5; }
+    .badge-emerald { background: #ECFDF5; color: #059669; }
+    .badge-orange { background: #FFF7ED; color: #EA580C; }
+
+    /* ── Page spec card ── */
+    .spec-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 32px;
+      box-shadow: 0 4px 20px -4px rgba(0,0,0,0.06);
+      margin-bottom: 24px;
+    }
+
+    .spec-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .spec-card-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .spec-card-title { font-size: 16px; font-weight: 700; color: #000; }
+    .spec-card-sub { font-size: 12.5px; color: #9CA3AF; margin-top: 2px; }
+
+    /* ── Design spec ── */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .color-swatch {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .color-block {
+      height: 48px;
+    }
+
+    .color-info {
+      background: #fff;
+      padding: 8px 12px;
+    }
+
+    .color-info .name { font-size: 12px; font-weight: 600; color: #111827; }
+    .color-info .value { font-size: 11px; color: #9CA3AF; font-family: monospace; }
+    .color-info .usage { font-size: 11px; color: #6B7280; margin-top: 2px; }
+
+    /* ── Canvas link ── */
+    .canvas-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #000;
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 12px;
+      transition: opacity 200ms;
+    }
+
+    .canvas-link:hover { opacity: 0.8; }
+
+    /* ── Page layout diagram ── */
+    .layout-diagram {
+      background: #F9FAFB;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 16px 0;
+      font-size: 12.5px;
+      color: #374151;
+    }
+
+    .layout-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .layout-box {
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .layout-box.top-bar { background: #E0E7FF; color: #4F46E5; flex: 1; }
+    .layout-box.sidebar-box { background: #F3F4F6; color: #374151; width: 120px; }
+    .layout-box.main-content { background: #ECFDF5; color: #059669; flex: 1; }
+    .layout-box.right-panel { background: #FFF7ED; color: #EA580C; width: 160px; }
+    .layout-box.bottom-bar { background: #F3F4F6; color: #6B7280; flex: 1; text-align: center; }
+
+    hr { border: none; border-top: 1px solid #F3F4F6; margin: 40px 0; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span>E</span>
+    EvalHub
+  </div>
+
+  <div class="nav-section">文档导航</div>
+  <a href="#previews" class="nav-item">设计预览</a>
+  <a href="#concepts" class="nav-item">核心概念</a>
+
+  <div class="nav-section">页面规格</div>
+  <a href="#login" class="nav-item">1. 登录与认证</a>
+  <a href="#dashboard" class="nav-item">2. 仪表盘</a>
+  <a href="#benchmarks" class="nav-item">3. Benchmark 管理</a>
+  <a href="#models" class="nav-item">4. 模型管理</a>
+  <a href="#evaluation" class="nav-item">5. 评测界面</a>
+  <a href="#results" class="nav-item">6. 实验结果</a>
+  <a href="#scores" class="nav-item">7. 客观评分</a>
+
+  <div class="nav-section">设计规范</div>
+  <a href="#design" class="nav-item">色彩 / 排版 / 布局</a>
+</nav>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>评测平台 — 功能设计文档</h1>
+    <div class="subtitle">一个视频生成模型评测平台，支持多模型并排对比、主观偏好投票、客观评分管理及实验结果分析。</div>
+  </div>
+
+  <!-- Design Previews -->
+  <div class="section" id="previews">
+    <h2><span class="section-num">→</span> 设计预览</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>页面</th>
+          <th>预览链接</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>评测界面（Pick Best）</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/95285bc4-ca76-4f84-9aa8-6bdc5c306e4a" target="_blank">↗ 预览</a></td>
+          <td>核心评测页面 — 双视频对比 + 投票 + 标注</td>
+        </tr>
+        <tr>
+          <td><strong>登录页</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/dff73375-cb42-4a49-af3d-46e7257a4b6d" target="_blank">↗ 预览</a></td>
+          <td>身份验证页面</td>
+        </tr>
+        <tr>
+          <td><strong>仪表盘概览</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/9ff2afe2-b244-4505-b96a-f1d356df7d6b" target="_blank">↗ 预览</a></td>
+          <td>概览仪表盘，含统计卡片 + 近期实验 + 动态日志</td>
+        </tr>
+        <tr>
+          <td><strong>Benchmark 管理</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/a0c3a2e5-6d44-4807-95f3-97ef74846123" target="_blank">↗ 预览</a></td>
+          <td>Benchmark 增删改查 + 数据浏览</td>
+        </tr>
+        <tr>
+          <td><strong>模型管理</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/be1dde24-9cfa-4d8d-b2e6-be4e5e7ab038" target="_blank">↗ 预览</a></td>
+          <td>模型注册 + 版本管理 + 结果上传</td>
+        </tr>
+        <tr>
+          <td><strong>实验结果</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/107ce652-5488-4ca6-b493-5db5f2a96e64" target="_blank">↗ 预览</a></td>
+          <td>实验统计 + 客观评分对比 + 单样本详情</td>
+        </tr>
+        <tr>
+          <td><strong>客观评分管理</strong></td>
+          <td><a class="preview-link" href="https://p.superdesign.dev/draft/091aea6d-b86e-4348-9cb3-57c77d9fbca1" target="_blank">↗ 预览</a></td>
+          <td>客观指标管理 + API 集成 + 上传历史</td>
+        </tr>
+      </tbody>
+    </table>
+    <a class="canvas-link" href="https://app.superdesign.dev/teams/ce762c7c-e5f0-40e5-ae6b-3835e3bc00ac/projects/614bdbe0-ebc1-4444-804f-d1f9896871f2" target="_blank">
+      ↗ 查看完整 SuperDesign 画布
+    </a>
+  </div>
+
+  <hr />
+
+  <!-- Core Concepts -->
+  <div class="section" id="concepts">
+    <h2><span class="section-num">✦</span> 核心概念</h2>
+    <div class="card-grid">
+      <div class="concept-card">
+        <h4>📋 Benchmark（评测基准集）</h4>
+        <p>由 10 个以上输入样本组成的集合，每个样本包含文本 prompt + 参考图片 + 参考视频（可选）。</p>
+        <ul>
+          <li>支持命名与版本更新（如 Portrait-50 v2.0）</li>
+          <li>样本通过 <code style="background:#F3F4F6;padding:1px 5px;border-radius:4px;font-size:12px">{benchmark_id}_{sample_id}</code> 寻址</li>
+          <li>支持一键批量下载所有输入数据</li>
+          <li>通过 Web UI 完整增删改查</li>
+        </ul>
+      </div>
+      <div class="concept-card">
+        <h4>🤖 模型（Model）</h4>
+        <p>已注册的视频生成模型，包含版本和类型元数据。</p>
+        <ul>
+          <li>模型类型：AvatarIV、Tokyo、Custom 等</li>
+          <li>可通过 Web UI 或 API 上传生成结果</li>
+          <li>支持版本历史追踪</li>
+        </ul>
+      </div>
+      <div class="concept-card">
+        <h4>🧪 实验（Experiment）</h4>
+        <p>选定多个已注册模型 + 一个 Benchmark 进行对比评测的单次评测会话。</p>
+        <ul>
+          <li>评测员逐样本对比模型输出</li>
+          <li>选出最佳结果（Pick Best）</li>
+          <li>可对每个视频打标签</li>
+          <li>展示跨实验历史标注记录</li>
+        </ul>
+      </div>
+      <div class="concept-card">
+        <h4>📊 客观评分（Objective Scores）</h4>
+        <p>通过统一 API 上传的自动化质量指标。</p>
+        <ul>
+          <li>唇形同步、清晰度、自然度、动作质量等</li>
+          <li>所有指标遵循统一 API 规范</li>
+          <li>支持按模型和按样本的对比视图</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- Pages -->
+  <div class="section" id="login">
+    <h2><span class="section-num">1</span> 登录与身份验证</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#F3F4F6">🔐</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">内部评测人员通过邮箱和密码登录，管理员负责角色与权限管理。</div>
+        </div>
+      </div>
+      <h3>功能</h3>
+      <ul class="feature-list">
+        <li><strong>登录</strong>：邮箱 + 密码验证</li>
+        <li><strong>角色</strong>：<span class="badge badge-indigo">Admin</span> <span class="badge badge-emerald" style="margin:0 4px">Evaluator</span> <span class="badge" style="background:#F3F4F6;color:#6B7280">Viewer</span></li>
+      </ul>
+      <h3>权限矩阵</h3>
+      <table>
+        <thead>
+          <tr><th>权限</th><th>Admin</th><th>Evaluator</th><th>Viewer</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>CRUD Benchmarks</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+          <tr><td>CRUD 模型</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+          <tr><td>创建 / 管理实验</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+          <tr><td>参与评测（投票 / 标注）</td><td class="check">✓</td><td class="check">✓</td><td class="cross">✗</td></tr>
+          <tr><td>查看实验结果与统计</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+          <tr><td>上传客观评分</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+          <tr><td>账号注册 / 管理</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="dashboard">
+    <h2><span class="section-num">2</span> 仪表盘</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#EEF2FF">📈</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">登录后的落地页，提供平台活动的快速概览。</div>
+        </div>
+      </div>
+      <h3>功能</h3>
+      <ul class="feature-list">
+        <li><strong>统计卡片</strong>（4 列网格）：活跃实验数、模型总数、Benchmark 数、本周评测数 — 每项附带趋势百分比徽章</li>
+        <li><strong>近期实验表格</strong>：实验名称、关联 Benchmark、对比模型、状态（进行中 / 已完成）、进度条、创建日期</li>
+        <li><strong>动态日志</strong>（右侧面板）：近期操作的实时日志</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section" id="benchmarks">
+    <h2><span class="section-num">3</span> Benchmark 管理</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#ECFDF5">📦</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">管理员创建和维护评测数据集，评测员和查看者可浏览。</div>
+        </div>
+      </div>
+      <h3>功能</h3>
+      <ul class="feature-list">
+        <li><strong>列表视图</strong>：卡片布局（2 列网格），每张卡片显示名称、版本、样本数、缩略图预览</li>
+        <li><strong>搜索与筛选</strong>：按名称搜索、按版本筛选、排序选项</li>
+        <li><strong>创建 Benchmark</strong>：设置名称、版本，批量上传样本（文本 + 图片 + 视频）</li>
+        <li><strong>详情 / 展开视图</strong>：逐一浏览样本 — 样本 ID、文本 prompt、参考图缩略图、参考视频标识</li>
+        <li><strong>批量下载</strong>：一键将所有输入数据打包下载为 zip</li>
+        <li><strong>版本管理</strong>：同一 Benchmark 可更新至新版本（如 v1.0 → v2.0）</li>
+      </ul>
+      <h3>数据结构</h3>
+      <pre>Benchmark:
+  - benchmark_id: string（唯一标识符）
+  - name:         string（名称）
+  - version:      string（版本）
+  - samples: [
+      {
+        sample_id:   int（自增）,
+        text_prompt: string（文本提示）,
+        ref_image:   file（必填）,
+        ref_video:   file（可选）
+      }
+    ]</pre>
+    </div>
+  </div>
+
+  <div class="section" id="models">
+    <h2><span class="section-num">4</span> 模型管理</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#FFF7ED">🤖</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">管理员注册模型并上传生成结果，评测员可查看模型信息。</div>
+        </div>
+      </div>
+      <h3>功能</h3>
+      <ul class="feature-list">
+        <li><strong>模型列表表格</strong>：模型名称、类型徽章（AvatarIV / Tokyo / Custom — 颜色编码）、版本、已测 Benchmark 数量、已上传结果数量、最后更新时间</li>
+        <li><strong>注册模型</strong>：填写模型名称、类型、版本</li>
+        <li><strong>模型详情面板</strong>（右侧）：
+          <ul class="sub-list">
+            <li>版本历史时间线（v2.1 → v2.0 → v1.5）</li>
+            <li>Benchmark 结果上传状态（绿色对勾 = 已上传）</li>
+          </ul>
+        </li>
+        <li><strong>上传结果</strong>：Web UI 上传 / API 端点（附代码片段）</li>
+      </ul>
+      <h3>上传接口</h3>
+      <pre>POST /api/v1/models/{model_id}/results
+Content-Type: multipart/form-data
+
+{
+  "benchmark_id": "portrait50",
+  "version": "v2.0",
+  "results": [
+    { "sample_id": 1, "video": &lt;file&gt; },
+    { "sample_id": 2, "video": &lt;file&gt; }
+  ]
+}</pre>
+    </div>
+  </div>
+
+  <div class="section" id="evaluation">
+    <h2><span class="section-num">5</span> 评测界面（核心页面）</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#EEF2FF">⚖️</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">评测员在实验中逐样本对比多个模型的视频输出，选出最佳结果并标注问题。</div>
+        </div>
+      </div>
+
+      <div class="layout-diagram">
+        <div class="layout-row">
+          <div class="layout-box top-bar">顶部导航栏 — 实验名称 · Benchmark · 进度 12/50 · 上一个 / 下一个</div>
+        </div>
+        <div class="layout-row">
+          <div style="flex:1">
+            <div class="layout-box main-content" style="margin-bottom:10px">样本信息卡片（ID · 文本 prompt · 参考图 / 视频）</div>
+            <div class="layout-box main-content">视频对比区域<br><small style="opacity:0.8">模型 A ｜ 模型 B（16:9，播放控制）<br>选为最佳按钮 · 评论框 · 历史评论</small></div>
+          </div>
+          <div class="layout-box right-panel">右侧面板<br><small style="opacity:0.8">选择原因<br>快捷 Tag<br>问题标签<br>历史标注</small></div>
+        </div>
+        <div class="layout-row">
+          <div class="layout-box bottom-bar">提交并下一个（主）&nbsp;&nbsp;&nbsp;跳过（次）</div>
+        </div>
+      </div>
+
+      <h4>顶部导航栏</h4>
+      <ul class="feature-list">
+        <li>实验名称（如"AvatarIV v2.1 vs Tokyo v3.0"）</li>
+        <li>关联 Benchmark 名称</li>
+        <li>进度指示（如"已完成 12/50 个样本"）</li>
+        <li>上一个 / 下一个导航箭头</li>
+      </ul>
+
+      <h4>视频对比区域</h4>
+      <ul class="feature-list">
+        <li>两个等宽视频播放器并排，模型标签显示为"模型 A / 模型 B"（隐藏真实名称）</li>
+        <li>16:9 播放器，支持播放 / 暂停 / 进度拖拽</li>
+        <li><strong>"选为最佳"按钮</strong> — 选中后变为靛蓝色并显示对勾</li>
+        <li><strong>评论文本框</strong> — 填写针对该视频的具体反馈</li>
+        <li><strong>历史评论</strong> — 若曾评测过，在灰色卡片中显示并附时间戳</li>
+      </ul>
+
+      <h4>右侧面板</h4>
+      <ul class="feature-list">
+        <li><strong>选择原因</strong>：文本框 + 快捷标签（更好的唇形同步 / 更自然 / 更清晰 / 动作更好）</li>
+        <li><strong>问题标签</strong>（每个视频独立）：唇形不同步 · 动作不自然 · 画面模糊 · 画面瑕疵 · 身份漂移 · 音画不同步</li>
+        <li><strong>历史标注</strong>：跨实验历史记录，可折叠展示</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section" id="results">
+    <h2><span class="section-num">6</span> 实验管理与结果</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#ECFDF5">📊</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">管理员创建实验，所有用户均可查看结果和统计数据。</div>
+        </div>
+      </div>
+
+      <h3>创建实验</h3>
+      <ul class="feature-list">
+        <li>选择参与模型（多选）</li>
+        <li>选择 Benchmark</li>
+        <li>设置实验名称</li>
+        <li>分配评测员</li>
+      </ul>
+
+      <h3>结果概览</h3>
+      <ul class="feature-list">
+        <li><strong>胜率统计卡片</strong>：模型 A 胜率 62%、模型 B 胜率 31%、平局/跳过 7%</li>
+        <li><strong>堆叠条形图</strong>：投票分布可视化（靛蓝 / 翠绿 / 灰色）</li>
+      </ul>
+
+      <h3>客观评分对比</h3>
+      <ul class="feature-list">
+        <li><strong>对比表格</strong>：行 = 指标，列 = 模型，显示均值 ± 标准差</li>
+        <li>较优分数绿色高亮，较差分数橙色标注</li>
+      </ul>
+
+      <h3>单样本详情</h3>
+      <ul class="feature-list">
+        <li><strong>详情表格</strong>：样本 ID · 投票胜者 · 投票人 · 投票原因（截断）· 各指标迷你条形图 · 展开按钮</li>
+        <li><strong>展开视图</strong>：双视频缩略图 + 完整投票评论 + 问题标签详情 + 客观评分雷达图</li>
+        <li><strong>评测员排行榜</strong>（右侧）：各评测员已完成样本数</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section" id="scores">
+    <h2><span class="section-num">7</span> 客观评分管理</h2>
+    <div class="spec-card">
+      <div class="spec-card-header">
+        <div class="spec-card-icon" style="background:#FFF7ED">🔢</div>
+        <div>
+          <div class="spec-card-title">使用场景</div>
+          <div class="spec-card-sub">管理员注册客观评测指标，并通过统一 API 上传评分。</div>
+        </div>
+      </div>
+
+      <h3>指标注册</h3>
+      <ul class="feature-list">
+        <li><strong>指标卡片网格</strong>（3 列）：唇形同步分 · 清晰度分 · 自然度分 · 动作质量 · 身份保持 · 音画相关性</li>
+        <li>每张卡片：指标名称、图标、描述、数值范围（0–1 或 0–100）、<span class="badge badge-emerald">启用</span> / <span class="badge" style="background:#F3F4F6;color:#9CA3AF">停用</span></li>
+        <li>支持添加自定义指标</li>
+      </ul>
+
+      <h3>API 集成</h3>
+      <pre>POST /api/v1/scores/upload
+
+{
+  "model_id":     "avatariv_v2.1",
+  "benchmark_id": "portrait50_v2",
+  "metric_name":  "lip_sync",
+  "scores": [
+    { "sample_id": 1, "score": 0.87 },
+    { "sample_id": 2, "score": 0.92 }
+  ]
+}
+
+// 响应
+{
+  "status": "success",
+  "records_created": 2
+}</pre>
+
+      <h3>上传历史</h3>
+      <ul class="feature-list">
+        <li>表格：指标名称 · 模型 · Benchmark · 样本数 · 上传人 · 日期 · <span class="badge badge-emerald">成功</span> / <span class="badge badge-orange">失败</span> / <span class="badge badge-indigo">处理中</span></li>
+      </ul>
+
+      <h3>快速统计（右侧面板）</h3>
+      <ul class="feature-list">
+        <li>已注册指标总数</li>
+        <li>评分记录总数</li>
+        <li>最后上传时间</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- Design Spec -->
+  <div class="section" id="design">
+    <h2><span class="section-num">★</span> 设计规范</h2>
+
+    <h3>色彩方案</h3>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-block" style="background:#000000"></div>
+        <div class="color-info"><div class="name">Primary</div><div class="value">#000000</div><div class="usage">主按钮、关键操作</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#FCFCFC;border:1px solid #F3F4F6"></div>
+        <div class="color-info"><div class="name">Background</div><div class="value">#FCFCFC</div><div class="usage">页面背景</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#F3F4F6"></div>
+        <div class="color-info"><div class="name">Neutral</div><div class="value">#F3F4F6</div><div class="usage">次级背景</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#9CA3AF"></div>
+        <div class="color-info"><div class="name">Gray Text</div><div class="value">#9CA3AF</div><div class="usage">次级文字、标签</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#6366F1"></div>
+        <div class="color-info"><div class="name">Indigo</div><div class="value">#6366F1</div><div class="usage">强调色、图表、选中态</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#10B981"></div>
+        <div class="color-info"><div class="name">Emerald</div><div class="value">#10B981</div><div class="usage">成功、正向指标</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#FB923C"></div>
+        <div class="color-info"><div class="name">Orange</div><div class="value">#FB923C</div><div class="usage">警告、注意</div></div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#FFFFFF;border:1px solid #F3F4F6"></div>
+        <div class="color-info"><div class="name">Surface</div><div class="value">#FFFFFF</div><div class="usage">卡片、面板</div></div>
+      </div>
+    </div>
+
+    <h3>字体排版</h3>
+    <div class="card">
+      <table>
+        <thead><tr><th>用途</th><th>字体</th><th>样式</th></tr></thead>
+        <tbody>
+          <tr><td>标题</td><td>General Sans</td><td>Semi-bold，字距收紧（tracking-tight）</td></tr>
+          <tr><td>正文 / UI</td><td>Satoshi</td><td>Regular / Medium</td></tr>
+          <tr><td>代码块</td><td>JetBrains Mono</td><td>Regular</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>布局规范</h3>
+    <div class="card">
+      <table>
+        <thead><tr><th>元素</th><th>规范</th></tr></thead>
+        <tbody>
+          <tr><td>侧边栏</td><td>256px 固定宽，玻璃拟态（backdrop-filter: blur(12px)，background: rgba(255,255,255,0.8)）</td></tr>
+          <tr><td>顶部栏</td><td>80px 固定高，sticky，带 backdrop blur</td></tr>
+          <tr><td>主内容</td><td>12 列网格</td></tr>
+          <tr><td>卡片圆角</td><td>32px</td></tr>
+          <tr><td>卡片阴影</td><td>0 4px 20px -4px rgba(0,0,0,0.03)</td></tr>
+          <tr><td>按钮</td><td>完全圆角（border-radius: 9999px），hover 过渡 300ms ease-in-out，点击 scale(0.95)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>
