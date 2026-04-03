@@ -1,0 +1,218 @@
+# Preview Environment Workflow
+#
+# Gives every PR a fully isolated preview environment:
+#   - Dedicated PostgreSQL database on AWS RDS
+#   - Backend (FastAPI) deployed on Vercel
+#   - Frontend (Vite + React) deployed on Vercel, proxying /api to the backend
+#
+# Execution order (PR open/update):
+#   setup-database → deploy-api → deploy-web → comment-pr
+#
+# Execution order (PR close):
+#   teardown-database + teardown-vercel (parallel)
+#
+# Required GitHub Secrets:
+#   RDS_HOST, RDS_PORT, RDS_USERNAME, RDS_PASSWORD
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_WEB_PROJECT_ID, VERCEL_API_PROJECT_ID
+#
+# Prerequisites:
+#   - Disable Vercel's automatic Git deployments (we deploy manually for ordering)
+#   - RDS must be publicly accessible from GitHub Actions runners
+
+name: Preview Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+env:
+  DB_NAME: evalhub_pr_${{ github.event.number }}
+
+jobs:
+  # ═══════════════════════════════════════════════════
+  # PR opened / updated: DB → deploy API → deploy Web
+  # ═══════════════════════════════════════════════════
+
+  setup-database:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create preview database (if not exists)
+        env:
+          PGHOST: ${{ secrets.RDS_HOST }}
+          PGUSER: ${{ secrets.RDS_USERNAME }}
+          PGPASSWORD: ${{ secrets.RDS_PASSWORD }}
+          PGPORT: ${{ secrets.RDS_PORT }}
+        run: |
+          psql -h "$PGHOST" -U "$PGUSER" -p "$PGPORT" -d postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = '${{ env.DB_NAME }}'" \
+            | grep -q 1 \
+            || psql -h "$PGHOST" -U "$PGUSER" -p "$PGPORT" -d postgres -c \
+              "CREATE DATABASE ${{ env.DB_NAME }}"
+          echo "Database ${{ env.DB_NAME }} ready"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run migrations and seed data
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql+asyncpg://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOST }}:${{ secrets.RDS_PORT }}/${{ env.DB_NAME }}"
+          SECRET_KEY: "preview-env-secret-key-not-for-prod"
+        run: |
+          pip install -r requirements.txt
+          alembic upgrade head
+          python -m scripts.seed_data
+          echo "Migrations + seed data applied"
+
+  # Deploy FastAPI backend to Vercel
+  deploy-api:
+    if: github.event.action != 'closed'
+    needs: setup-database
+    runs-on: ubuntu-latest
+    outputs:
+      api_url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Pull Vercel project config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+        working-directory: backend
+        run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+
+      - name: Deploy API to Vercel
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+        working-directory: backend
+        run: |
+          DB_URL="postgresql+asyncpg://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOST }}:${{ secrets.RDS_PORT }}/${{ env.DB_NAME }}"
+
+          URL=$(vercel deploy --token=$VERCEL_TOKEN \
+            --env DATABASE_URL="$DB_URL" \
+            --env SECRET_KEY="preview-env-secret-key-not-for-prod" \
+            --meta githubCommitRef=${{ github.head_ref }} \
+            --meta githubPrId=${{ github.event.number }})
+
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "API deployed: $URL"
+
+  # Deploy Vite + React frontend to Vercel
+  deploy-web:
+    if: github.event.action != 'closed'
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    outputs:
+      web_url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Pull Vercel project config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
+        working-directory: frontend
+        run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+
+      - name: Deploy Web to Vercel
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
+        working-directory: frontend
+        run: |
+          URL=$(vercel deploy --token=$VERCEL_TOKEN \
+            --env VITE_API_URL=${{ needs.deploy-api.outputs.api_url }} \
+            --meta githubCommitRef=${{ github.head_ref }} \
+            --meta githubPrId=${{ github.event.number }})
+
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Web deployed: $URL"
+
+  # Post preview URLs on the PR
+  comment-pr:
+    if: github.event.action != 'closed'
+    needs: [deploy-api, deploy-web]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post preview URLs on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-environment
+          message: |
+            ## Preview Environment
+
+            | Service | URL |
+            |---------|-----|
+            | Frontend | ${{ needs.deploy-web.outputs.web_url }} |
+            | Backend  | ${{ needs.deploy-api.outputs.api_url }} |
+            | Database | `${{ env.DB_NAME }}` |
+
+            > Auto-deployed by Preview Environment workflow
+
+  # ═══════════════════════════════════════
+  # PR closed: teardown everything
+  # ═══════════════════════════════════════
+
+  teardown-database:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drop preview database
+        env:
+          PGHOST: ${{ secrets.RDS_HOST }}
+          PGUSER: ${{ secrets.RDS_USERNAME }}
+          PGPASSWORD: ${{ secrets.RDS_PASSWORD }}
+          PGPORT: ${{ secrets.RDS_PORT }}
+        run: |
+          psql -h "$PGHOST" -U "$PGUSER" -p "$PGPORT" -d postgres -c \
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${{ env.DB_NAME }}' AND pid <> pg_backend_pid();" \
+            || true
+          psql -h "$PGHOST" -U "$PGUSER" -p "$PGPORT" -d postgres -c \
+            "DROP DATABASE IF EXISTS ${{ env.DB_NAME }}"
+          echo "Database ${{ env.DB_NAME }} dropped"
+
+  teardown-vercel:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - project_name: eval-hub-web
+            project_id_secret: VERCEL_WEB_PROJECT_ID
+          - project_name: eval-hub-api
+            project_id_secret: VERCEL_API_PROJECT_ID
+    steps:
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Remove ${{ matrix.project_name }} preview deployments
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets[matrix.project_id_secret] }}
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          vercel remove ${{ matrix.project_name }} --safe --yes \
+            --token=$VERCEL_TOKEN \
+            -m githubCommitRef=$BRANCH \
+            || echo "No deployments found for ${{ matrix.project_name }} branch $BRANCH, skipping."

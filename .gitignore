@@ -14,7 +14,6 @@ frontend/dist/
 .claude/
 
 # Not for public display
-backend/
 docs/
 doc/backend-tasks.md
 doc/functional-design*
