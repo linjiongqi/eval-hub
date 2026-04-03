@@ -65,8 +65,8 @@ jobs:
           SECRET_KEY: "preview-env-secret-key-not-for-prod"
         run: |
           pip install -r requirements.txt
-          alembic upgrade head
-          python -m scripts.seed_data
+          PYTHONPATH=. alembic upgrade head
+          PYTHONPATH=. python -m scripts.seed_data
           echo "Migrations + seed data applied"
 
   # Deploy FastAPI backend to Vercel
