@@ -87,7 +87,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
-        working-directory: backend
         run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
       - name: Deploy API to Vercel
@@ -96,7 +95,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
-        working-directory: backend
         run: |
           DB_URL="postgresql+asyncpg://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOST }}:${{ secrets.RDS_PORT }}/${{ env.DB_NAME }}"
 
@@ -127,7 +125,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
-        working-directory: frontend
         run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
       - name: Deploy Web to Vercel
@@ -136,7 +133,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
-        working-directory: frontend
         run: |
           URL=$(vercel deploy --token=$VERCEL_TOKEN \
             --env VITE_API_URL=${{ needs.deploy-api.outputs.api_url }} \
